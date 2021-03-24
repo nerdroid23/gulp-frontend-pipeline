@@ -17,35 +17,43 @@ const nunjucksRender = require('gulp-nunjucks-render');
 const PATHS = {
   DIST: './dist/**',
   FONTS: {
-    INPUT: './resources/fonts/**/*.{eot,ttf,woff,svg',
-    OUTPUT: './dist/fonts',
+    INPUT: './resources/fonts/**/*.{eot,ttf,woff,svg}',
+    OUTPUT: './dist/fonts/',
   },
   IMAGES: {
-    INPUT: './resources/img/**/*.{png,gif,jpg,jpeg,svg',
-    OUTPUT: './dist/img',
+    INPUT: './resources/img/**/*.{png,gif,jpg,jpeg,svg}',
+    OUTPUT: './dist/img/',
   },
   STYLES: {
     INPUT: './resources/scss/main.scss',
-    OUTPUT: './dist/css',
+    OUTPUT: './dist/css/',
   },
   LIB_SCRIPTS: {
     INPUT: './resources/js/lib/*.js',
-    OUTPUT: './dist/js',
+    OUTPUT: './dist/js/',
   },
   MAIN_SCRIPT: {
     INPUT: './resources/js/main.js',
-    OUTPUT: './dist/js',
+    OUTPUT: './dist/js/',
   },
   VIEWS: {
     DATA: './resources/views/data/',
     INPUT: './resources/views/*.html',
-    OUTPUT: './dist/html',
+    OUTPUT: './dist/html/',
     ROOT: './resources/views/',
   },
 };
 
-function clean(done) {
-  del([PATHS.DIST]);
+function cleanTask(done) {
+  del([
+    PATHS.FONTS.OUTPUT + '**/*',
+    PATHS.IMAGES.OUTPUT + '**/*',
+    PATHS.STYLES.OUTPUT + '**/*',
+    PATHS.LIB_SCRIPTS.OUTPUT + '**/*',
+    PATHS.VIEWS.OUTPUT + '**/*',
+    '!' + PATHS.DIST + '/*.md',
+  ]);
+
   done();
 }
 
@@ -134,20 +142,21 @@ function watchTask() {
 
 /* set up browsersync */
 
-exports.clean = clean;
-exports.cssTask = cssTask;
-exports.jsTask = jsTask;
-exports.templateEngineTask = templateEngineTask;
+exports.clean = cleanTask;
+exports.css = cssTask;
+exports.js = jsTask;
+exports.fonts = fontsTask;
+exports.template = templateEngineTask;
 
 exports.build = series(
-  clean,
+  cleanTask,
   imgTask,
   fontsTask,
   parallel(cssTask, jsTask, templateEngineTask)
 );
 
 exports.default = series(
-  clean,
+  cleanTask,
   imgTask,
   fontsTask,
   parallel(cssTask, jsTask, templateEngineTask),
