@@ -12,15 +12,16 @@ const concat = require('gulp-concat');
 const terser = require('gulp-terser');
 const sourcemaps = require('gulp-sourcemaps');
 const data = require('gulp-data');
+const nunjucksRender = require('gulp-nunjucks-render');
 
 const PATHS = {
   DIST: './dist/**',
   FONTS: {
-    INPUT: './resources/fonts/**/*',
+    INPUT: './resources/fonts/**/*.{eot,ttf,woff,svg',
     OUTPUT: './dist/fonts',
   },
   IMAGES: {
-    INPUT: './resources/img/**/*',
+    INPUT: './resources/img/**/*.{png,gif,jpg,jpeg,svg',
     OUTPUT: './dist/img',
   },
   STYLES: {
@@ -39,6 +40,7 @@ const PATHS = {
     DATA: './resources/views/data/',
     INPUT: './resources/views/*.html',
     OUTPUT: './dist/html',
+    ROOT: './resources/views/',
   },
 };
 
@@ -56,7 +58,7 @@ function imgTask(done) {
 }
 
 function fontsTask(done) {
-  src(PATHS.FONTS.INPUT).pipe(dest(PATHS.FONTS.OUTPUT));
+  src(PATHS.FONTS.INPUT, { allowEmpty: true }).pipe(dest(PATHS.FONTS.OUTPUT));
   done();
 }
 
@@ -76,7 +78,7 @@ function cssTask(done) {
 }
 
 function jsTask(done) {
-  src(PATHS.LIB_SCRIPTS.INPUT)
+  src(PATHS.LIB_SCRIPTS.INPUT, { allowEmpty: true })
     .pipe(concat('libs.js'))
     .pipe(dest(PATHS.LIB_SCRIPTS.OUTPUT));
 
@@ -106,7 +108,11 @@ function templateEngineTask(done) {
   src(PATHS.VIEWS.INPUT)
     .pipe(data(getTemplateData))
     .pipe(data(getDefaultData))
-    .pipe() /* set up template engine here */
+    .pipe(
+      nunjucksRender({
+        path: [PATHS.VIEWS.ROOT],
+      })
+    )
     .pipe(dest(PATHS.VIEWS.OUTPUT));
 
   done();

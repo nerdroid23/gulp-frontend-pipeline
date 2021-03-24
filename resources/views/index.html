@@ -1,0 +1,21 @@
+{% from "components/characters-list.html" import charactersList %}
+
+{% extends "layouts/base.html" %}
+
+<div>
+  {% block title %}
+  <title>{{site.title}}</title>
+  {% endblock %}
+</div>
+
+<div>
+  {% block content %}
+  <div>
+    <p>hello, {{variable}}</p>
+  </div>
+
+  <div>
+    {{charactersList(characters)}}
+  </div>
+  {% endblock %}
+</div>

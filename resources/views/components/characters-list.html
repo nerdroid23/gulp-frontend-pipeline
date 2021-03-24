@@ -1,0 +1,7 @@
+{% macro charactersList(characters) %}
+<ul>
+  {% for character in characters %}
+  <li>{{character}}</li>
+  {% endfor %}
+</ul>
+{% endmacro %}
