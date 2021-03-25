@@ -1,0 +1,11 @@
+{
+  "extends": ["airbnb-base", "plugin:prettier/recommended"],
+  "globals": {
+    "jQuery": true,
+    "$": true
+  },
+  "plugins": [],
+  "rules": {
+    "no-unused-vars": "warn"
+  }
+}

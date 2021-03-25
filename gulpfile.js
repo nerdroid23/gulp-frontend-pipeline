@@ -16,6 +16,8 @@ const nunjucksRender = require('gulp-nunjucks-render');
 const browsersync = require('browser-sync').create();
 const gulpif = require('gulp-if');
 const purgecss = require('@fullhuman/postcss-purgecss');
+const stylelint = require('gulp-stylelint');
+const eslint = require('gulp-eslint');
 
 let isProd = false;
 
@@ -42,8 +44,8 @@ const PATHS = {
     INPUT: './resources/js/lib/*.js',
     OUTPUT: './dist/js/',
   },
-  MAIN_SCRIPT: {
-    INPUT: './resources/js/main.js',
+  APP_SCRIPTS: {
+    INPUT: './resources/js/**/*.js',
     OUTPUT: './dist/js/',
   },
   VIEWS: {
@@ -56,13 +58,12 @@ const PATHS = {
 
 function cleanTask(done) {
   del([
-    PATHS.FONTS.OUTPUT + '**/*',
-    PATHS.IMAGES.OUTPUT + '**/*',
-    PATHS.STYLES.OUTPUT + '**/*',
-    PATHS.LIB_SCRIPTS.OUTPUT + '**/*',
-    PATHS.VIEWS.OUTPUT + '**/*',
-    // PATHS.VIEWS.OUTPUT + '*.html',
-    '!' + PATHS.DIST + '/*.md',
+    `${PATHS.FONTS.OUTPUT}**/*`,
+    `${PATHS.IMAGES.OUTPUT}**/*`,
+    `${PATHS.STYLES.OUTPUT}**/*`,
+    `${PATHS.LIB_SCRIPTS.OUTPUT}**/*`,
+    `${PATHS.VIEWS.OUTPUT}**/*`,
+    `!${PATHS.DIST}/*.md`,
   ]);
 
   done();
@@ -88,7 +89,7 @@ function cssTask(done) {
       ? [
           cssnano(),
           purgecss({
-            content: [PATHS.VIEWS.ROOT + '**/*.html'],
+            content: [`${PATHS.VIEWS.ROOT}**/*.html`],
             keyframes: true,
             whitelistPatterns: [
               /popover/,
@@ -104,13 +105,16 @@ function cssTask(done) {
       : []),
   ];
 
-  if (isProd) {
-    plugins.push(cssnano());
-  }
+  const stylelintConfig = {
+    failAfterError: true,
+    fix: true,
+    reporters: [{ formatter: 'string', console: true }],
+  };
 
   src(PATHS.STYLES.INPUT)
     .pipe(gulpif(isProd, sourcemaps.init()))
     .pipe(sass().on('error', sass.logError))
+    .pipe(stylelint(stylelintConfig))
     .pipe(postcss(plugins))
     .pipe(gulpif(isProd, concat('app.min.css')))
     .pipe(gulpif(!isProd, concat('app.css')))
@@ -125,31 +129,37 @@ function jsTask(done) {
     .pipe(concat('libs.js'))
     .pipe(dest(PATHS.LIB_SCRIPTS.OUTPUT));
 
-  src(PATHS.MAIN_SCRIPT.INPUT)
+  src([PATHS.APP_SCRIPTS.INPUT, `!${PATHS.LIB_SCRIPTS.INPUT}`], {
+    allowEmpty: true,
+  })
     .pipe(gulpif(isProd, sourcemaps.init()))
     .pipe(gulpif(!isProd, concat('app.js')))
     .pipe(gulpif(isProd, concat('app.min.js')))
+    .pipe(eslint.format())
+    .pipe(eslint.failOnError())
     .pipe(gulpif(isProd, terser()))
     .pipe(gulpif(isProd, sourcemaps.write('.')))
-    .pipe(dest(PATHS.MAIN_SCRIPT.OUTPUT));
+    .pipe(dest(PATHS.APP_SCRIPTS.OUTPUT));
 
   done();
 }
 
 function templateEngineTask(done) {
   const getTemplateData = (file) => {
-    const filename = path.basename(file.path) + '.json';
+    const filename = `${path.basename(file.path)}.json`;
 
     try {
       return JSON.parse(fs.readFileSync(PATHS.VIEWS.DATA + filename));
-    } catch (e) {}
+    } catch (e) {
+      //
+    }
 
     return {};
   };
 
   const getDefaultData = () => {
     return JSON.parse(
-      fs.readFileSync(PATHS.VIEWS.DATA + path.basename('default.json'))
+      fs.readFileSync(PATHS.VIEWS.DATA + path.basename('default.json')),
     );
   };
 
@@ -159,24 +169,16 @@ function templateEngineTask(done) {
     .pipe(
       nunjucksRender({
         path: [PATHS.VIEWS.ROOT],
-      })
+      }),
     )
     .pipe(dest(PATHS.VIEWS.OUTPUT));
 
   done();
 }
 
-function watchTask() {
-  watch(
-    [
-      PATHS.IMAGES.INPUT,
-      PATHS.LIB_SCRIPTS.INPUT,
-      PATHS.MAIN_SCRIPT.INPUT,
-      PATHS.STYLES.INPUT,
-      PATHS.VIEWS.ROOT + '**/*.html',
-    ],
-    series(imgTask, cssTask, jsTask, templateEngineTask, browserSyncReload)
-  );
+function browserSyncReload(done) {
+  browsersync.reload();
+  done();
 }
 
 function browserSyncServe(done) {
@@ -193,9 +195,17 @@ function browserSyncServe(done) {
   done();
 }
 
-function browserSyncReload(done) {
-  browsersync.reload();
-  done();
+function watchTask() {
+  watch(
+    [
+      PATHS.IMAGES.INPUT,
+      PATHS.LIB_SCRIPTS.INPUT,
+      PATHS.APP_SCRIPTS.INPUT,
+      PATHS.STYLES.INPUT,
+      `${PATHS.VIEWS.ROOT}**/*.html`,
+    ],
+    series(imgTask, cssTask, jsTask, templateEngineTask, browserSyncReload),
+  );
 }
 
 exports.clean = cleanTask;
@@ -205,7 +215,7 @@ exports.build = series(
   cleanTask,
   imgTask,
   fontsTask,
-  parallel(cssTask, jsTask, templateEngineTask)
+  parallel(cssTask, jsTask, templateEngineTask),
 );
 
 exports.default = series(
@@ -214,5 +224,5 @@ exports.default = series(
   fontsTask,
   parallel(cssTask, jsTask, templateEngineTask),
   browserSyncServe,
-  watchTask
+  watchTask,
 );
