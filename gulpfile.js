@@ -13,6 +13,15 @@ const terser = require('gulp-terser');
 const sourcemaps = require('gulp-sourcemaps');
 const data = require('gulp-data');
 const nunjucksRender = require('gulp-nunjucks-render');
+const browsersync = require('browser-sync').create();
+const gulpif = require('gulp-if');
+
+let isProd = false;
+
+const activateProd = (done) => {
+  isProd = true;
+  done();
+};
 
 const PATHS = {
   DIST: './dist/**',
@@ -51,6 +60,7 @@ function cleanTask(done) {
     PATHS.STYLES.OUTPUT + '**/*',
     PATHS.LIB_SCRIPTS.OUTPUT + '**/*',
     PATHS.VIEWS.OUTPUT + '**/*',
+    // PATHS.VIEWS.OUTPUT + '*.html',
     '!' + PATHS.DIST + '/*.md',
   ]);
 
@@ -72,14 +82,19 @@ function fontsTask(done) {
 
 function cssTask(done) {
   /* set up purgecss here */
-  const plugins = [autoprefixer(), cssnano()];
+  const plugins = [autoprefixer()];
+
+  if (isProd) {
+    plugins.push(cssnano());
+  }
 
   src(PATHS.STYLES.INPUT)
-    .pipe(sourcemaps.init())
+    .pipe(gulpif(isProd, sourcemaps.init()))
     .pipe(sass().on('error', sass.logError))
     .pipe(postcss(plugins))
-    .pipe(concat('app.css'))
-    .pipe(sourcemaps.write('.'))
+    .pipe(gulpif(isProd, concat('app.min.css')))
+    .pipe(gulpif(!isProd, concat('app.css')))
+    .pipe(gulpif(isProd, sourcemaps.write('.')))
     .pipe(dest(PATHS.STYLES.OUTPUT));
 
   done();
@@ -91,10 +106,11 @@ function jsTask(done) {
     .pipe(dest(PATHS.LIB_SCRIPTS.OUTPUT));
 
   src(PATHS.MAIN_SCRIPT.INPUT)
-    .pipe(sourcemaps.init())
-    .pipe(concat('app.js'))
-    .pipe(terser())
-    .pipe(sourcemaps.write('.'))
+    .pipe(gulpif(isProd, sourcemaps.init()))
+    .pipe(gulpif(!isProd, concat('app.js')))
+    .pipe(gulpif(isProd, concat('app.min.js')))
+    .pipe(gulpif(isProd, terser()))
+    .pipe(gulpif(isProd, sourcemaps.write('.')))
     .pipe(dest(PATHS.MAIN_SCRIPT.OUTPUT));
 
   done();
@@ -102,9 +118,13 @@ function jsTask(done) {
 
 function templateEngineTask(done) {
   const getTemplateData = (file) => {
-    return JSON.parse(
-      fs.readFileSync(PATHS.VIEWS.DATA + path.basename(file.path) + '.json')
-    );
+    const filename = path.basename(file.path) + '.json';
+
+    try {
+      return JSON.parse(fs.readFileSync(PATHS.VIEWS.DATA + filename));
+    } catch (e) {}
+
+    return {};
   };
 
   const getDefaultData = () => {
@@ -129,26 +149,39 @@ function templateEngineTask(done) {
 function watchTask() {
   watch(
     [
-      PATHS.DATA,
-      PATHS.FONTS.INPUT,
       PATHS.IMAGES.INPUT,
       PATHS.LIB_SCRIPTS.INPUT,
       PATHS.MAIN_SCRIPT.INPUT,
       PATHS.STYLES.INPUT,
+      PATHS.VIEWS.ROOT + '**/*.html',
     ],
-    parallel(fontsTask, imgTask, cssTask, jsTask, templateEngineTask)
+    series(imgTask, cssTask, jsTask, templateEngineTask, browserSyncReload)
   );
 }
 
-/* set up browsersync */
+function browserSyncServe(done) {
+  const config = {
+    open: false,
+    server: ['./dist', PATHS.VIEWS.OUTPUT],
+    serveStatic: ['./dist', PATHS.VIEWS.OUTPUT],
+    serveStaticOptions: {
+      extensions: ['html'], // pretty urls
+    },
+  };
+
+  browsersync.init(config);
+  done();
+}
+
+function browserSyncReload(done) {
+  browsersync.reload();
+  done();
+}
 
 exports.clean = cleanTask;
-exports.css = cssTask;
-exports.js = jsTask;
-exports.fonts = fontsTask;
-exports.template = templateEngineTask;
 
 exports.build = series(
+  activateProd,
   cleanTask,
   imgTask,
   fontsTask,
@@ -160,5 +193,6 @@ exports.default = series(
   imgTask,
   fontsTask,
   parallel(cssTask, jsTask, templateEngineTask),
+  browserSyncServe,
   watchTask
 );
