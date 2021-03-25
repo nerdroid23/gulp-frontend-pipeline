@@ -15,6 +15,7 @@ const data = require('gulp-data');
 const nunjucksRender = require('gulp-nunjucks-render');
 const browsersync = require('browser-sync').create();
 const gulpif = require('gulp-if');
+const purgecss = require('@fullhuman/postcss-purgecss');
 
 let isProd = false;
 
@@ -81,8 +82,27 @@ function fontsTask(done) {
 }
 
 function cssTask(done) {
-  /* set up purgecss here */
-  const plugins = [autoprefixer()];
+  const plugins = [
+    autoprefixer(),
+    ...(isProd
+      ? [
+          cssnano(),
+          purgecss({
+            content: [PATHS.VIEWS.ROOT + '**/*.html'],
+            keyframes: true,
+            whitelistPatterns: [
+              /popover/,
+              /tooltip/,
+              /modal/,
+              /fade/,
+              /show/,
+              /hide/,
+              /alert/,
+            ],
+          }),
+        ]
+      : []),
+  ];
 
   if (isProd) {
     plugins.push(cssnano());
