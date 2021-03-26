@@ -1,4 +1,4 @@
-# Gulp Frontend Pipeline
+# Skeleton Gulp init
 
 ## Installation
 ```bash
